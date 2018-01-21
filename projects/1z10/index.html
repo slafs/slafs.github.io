@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>1 z 10 - finał</title>
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+    <style>
+
+      .chance.active {
+        font-weight: bold;
+      }
+      .finalPlayer {
+        display: inline-block;
+        margin: 3px;
+        padding: 15px;
+        border: 3px solid blue;
+        border-radius: 15px;
+        text-align: center;
+      }
+      .finalPlayer.out {
+        background-color: #ccc;
+        color: #aaa;
+      }
+      .points {
+        font-size: 2.4em;
+        padding: 15px;
+        letter-spacing: 2px;
+      }
+
+      .nameWrapper {
+        max-height: 2.1em;
+      }
+      .playerName {
+        font-size: 2em;
+      }
+      .playerNameEdit {
+        font-size: 1.6em;
+        width: 4em;
+      }
+      .chances {
+        margin: 15px 0 3px;
+      }
+      .chance {
+        font-size: 1.2em;
+        display: inline;
+      }
+
+      .activeChance {
+        color: green;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="text/babel">
+
+      class EditableName extends React.Component {
+        constructor(props) {
+            super(props);
+            this.state = {edit: false, name: this.props.name};
+        }
+
+        toggleEdit() {
+          this.setState((prevState, props) => ({
+            edit: !prevState.edit
+          }));
+        }
+
+        setName(event) {
+          this.setState({name: event.target.value});
+        }
+
+        render() {
+          const readonlyTag = <span title="click to edit" className="playerName" onClick={this.toggleEdit.bind(this)}>
+            {this.state.name ? this.state.name : "---"}
+          </span>;
+          const editTag = <input className="playerNameEdit" type="text" value={this.state.name} onChange={this.setName.bind(this)} onBlur={this.toggleEdit.bind(this)} autoFocus="true" />;
+
+          return <div className="nameWrapper">
+              {this.state.edit ? editTag : readonlyTag}
+            </div>;
+        }
+      }
+
+
+      class FinalPlayerBoard extends React.Component {
+        constructor(props) {
+            super(props);
+            this.state = {points: 0, chances: 3};
+        }
+
+        pointsPlus(many) {
+          this.setState((prevState, props) => ({
+            points: prevState.points + many
+          }));
+        }
+
+        lostChance() {
+          this.setState((prevState, props) => ({
+            chances: prevState.chances > 0 ? prevState.chances - 1 : 3
+          }));
+        }
+
+
+        render() {
+          const activeChance = <span className="activeChance">◉</span>;
+          const lostChance =  <span className="lostChance">◎</span>;
+
+          const chances = <div className="chances">
+                <div className="chance"> {this.state.chances > 0 ? activeChance : lostChance}</div>
+                <div className="chance"> {this.state.chances > 1 ? activeChance : lostChance}</div>
+                <div className="chance"> {this.state.chances > 2 ? activeChance : lostChance}</div>
+            </div>;
+
+          const pointsPlusOneButton = <button onClick={this.pointsPlus.bind(this, 1)}>+1</button>;
+          const pointsPlusTenButton = <button onClick={this.pointsPlus.bind(this, 10)}>+10</button>;
+          const pointsPlusTwentyButton = <button onClick={this.pointsPlus.bind(this, 20)}>+20</button>;
+          const pointsMinusOneButton = <button onClick={this.pointsPlus.bind(this, -1)}>-1</button>;
+          const pointsMinusTenButton = <button onClick={this.pointsPlus.bind(this, -10)}>-10</button>;
+          const pointsMinusTwentyButton = <button onClick={this.pointsPlus.bind(this, -20)}>-20</button>;
+          const looseChanceButton = <button onClick={this.lostChance.bind(this)}>x</button>;
+
+          const points = <span>{this.state.points}</span>;
+
+          return <div className={`finalPlayer ${this.state.chances == 0 ? 'out' : 'active'}`}>
+              <EditableName name={this.props.defaultName} />
+              <div className="chances">{chances}</div>
+              {looseChanceButton}
+              <div className="points">{points}</div>
+              {pointsPlusOneButton}
+              {pointsPlusTenButton}
+              {pointsPlusTwentyButton}
+              <br />
+              {pointsMinusOneButton}
+              {pointsMinusTenButton}
+              {pointsMinusTwentyButton}
+            </div>;
+        }
+      }
+
+      class App extends React.Component {
+        render() {
+          return <div className="finalPlayers">
+              <FinalPlayerBoard defaultName="Gracz 1" />
+              <FinalPlayerBoard defaultName="Gracz 2" />
+              <FinalPlayerBoard defaultName="Gracz 3" />
+            </div>;
+        }
+      }
+
+      ReactDOM.render(
+        <App />,
+        document.getElementById('root')
+      );
+
+    </script>
+    <!--
+      Note: this page is a great way to try React but it's not suitable for production.
+      It slowly compiles JSX with Babel in the browser and uses a large development build of React.
+
+      To set up a production-ready React build environment, follow these instructions:
+      * https://reactjs.org/docs/add-react-to-a-new-app.html
+      * https://reactjs.org/docs/add-react-to-an-existing-app.html
+
+      You can also use React without JSX, in which case you can remove Babel:
+      * https://reactjs.org/docs/react-without-jsx.html
+      * https://reactjs.org/docs/cdn-links.html
+    -->
+  </body>
+</html>
