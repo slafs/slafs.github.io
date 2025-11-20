@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor Wyłączeń Prądu - Rozgarty</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .location {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.checking {
+            background: #f59e0b;
+        }
+
+        .status-dot.error {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .last-check {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .shutdowns-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .shutdowns-header {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .shutdowns-header h2 {
+            color: #333;
+            font-size: 20px;
+        }
+
+        .shutdowns-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .official-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #f3f4f6;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .official-link:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .count-badge {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .count-badge.warning {
+            background: #f59e0b;
+        }
+
+        .shutdown-item {
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .shutdown-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .shutdown-date {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .shutdown-time {
+            font-size: 16px;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .shutdown-details {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .notification-status {
+            padding: 10px 15px;
+            background: #fef3c7;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #92400e;
+        }
+
+        .notification-status.enabled {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .notification-status.denied {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 600px) {
+            .header, .shutdowns-container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Monitor Wyłączeń Prądu</h1>
+            <div class="location">📍 Rozgarty, Zławieś Wielka gm. wiejska, Region Toruń, Oddział Toruń</div>
+
+            <div class="status-bar">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Gotowy do sprawdzenia</span>
+                </div>
+                <div class="last-check" id="lastCheck">Nigdy nie sprawdzono</div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-primary" onclick="checkNow()">🔄 Sprawdź teraz</button>
+                <button class="btn-secondary" id="autoCheckBtn" onclick="toggleAutoCheck()">▶️ Włącz auto-sprawdzanie (co 6h)</button>
+                <button class="btn-success" onclick="requestNotifications()">🔔 Włącz powiadomienia</button>
+            </div>
+
+            <div class="notification-status" id="notificationStatus">
+                ⚠️ Powiadomienia nie są włączone. Kliknij przycisk powyżej.
+            </div>
+        </div>
+
+        <div class="shutdowns-container">
+            <div class="shutdowns-header">
+                <div class="shutdowns-header-top">
+                    <h2>Planowane wyłączenia (7 dni)</h2>
+                    <span class="count-badge" id="countBadge">0</span>
+                </div>
+                <a href="https://energa-operator.pl/uslugi/awarie-i-wylaczenia/wylaczenia-biezace"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="official-link">
+                    🗺️ Zobacz mapę wyłączeń
+                </a>
+            </div>
+            <div id="shutdownsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Wczytywanie danych...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Konfiguracja
+        const API_URL_DIRECT = 'https://energa-operator.pl/__system/api/document/EXTERNAL_DOCUMENT-305647/1763638013';
+        const CORS_PROXY = 'https://corsproxy.io/?';
+        const API_URL = CORS_PROXY + encodeURIComponent(API_URL_DIRECT);
+        const CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 godzin w milisekundach
+        const LOCATION_FILTER = 'Rozgarty';
+        const DAYS_AHEAD = 7;
+
+        // Stan aplikacji
+        let autoCheckInterval = null;
+        let lastShutdownsCount = 0;
+        let notificationPermission = 'default';
+
+        // Funkcje pomocnicze dla dat
+        function parseDate(dateStr) {
+            // Format: "DD.MM.YYYY HH:MM" (CET)
+            const [datePart, timePart] = dateStr.split(' ');
+            const [day, month, year] = datePart.split('.');
+            const [hours, minutes] = timePart.split(':');
+            return new Date(year, month - 1, day, hours, minutes);
+        }
+
+        function formatDate(date) {
+            const days = ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'];
+            const dayName = days[date.getDay()];
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${dayName}, ${day}.${month}.${year}`;
+        }
+
+        function formatTime(date) {
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${hours}:${minutes} CET`;
+        }
+
+        // Sprawdzanie wyłączeń
+        async function checkShutdowns() {
+            try {
+                updateStatus('checking', 'Sprawdzanie...');
+
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const shutdowns = data.document?.payload?.shutdowns || [];
+
+                // Filtrowanie dla Rozgarty i najbliższego tygodnia
+                const now = new Date();
+                const weekFromNow = new Date(now.getTime() + DAYS_AHEAD * 24 * 60 * 60 * 1000);
+                const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+                const filteredShutdowns = shutdowns.filter(shutdown => {
+                    // Sprawdź czy dotyczy Rozgarty
+                    const message = shutdown.message || '';
+                    if (!message.includes(LOCATION_FILTER)) {
+                        return false;
+                    }
+
+                    // Sprawdź czy wyłączenie jest aktualne lub w najbliższym tygodniu
+                    // Używamy endDate - jeśli wyłączenie jeszcze się nie skończyło, pokaż je
+                    const endDate = new Date(shutdown.endDate);
+
+                    // Pokaż jeśli: zakończy się po wczoraj i rozpocznie się przed końcem tygodnia
+                    const startDate = new Date(shutdown.startDate);
+                    return endDate >= yesterday && startDate <= weekFromNow;
+                });
+
+                displayShutdowns(filteredShutdowns);
+                updateLastCheck();
+                updateStatus('ready', 'Gotowy');
+
+                // Sprawdź czy są nowe wyłączenia i wyślij notyfikację
+                if (filteredShutdowns.length > lastShutdownsCount && lastShutdownsCount > 0) {
+                    sendNotification(filteredShutdowns);
+                }
+                lastShutdownsCount = filteredShutdowns.length;
+
+                return filteredShutdowns;
+            } catch (error) {
+                console.error('Błąd podczas sprawdzania wyłączeń:', error);
+                updateStatus('error', 'Błąd połączenia');
+                displayError(error.message);
+                return null;
+            }
+        }
+
+        function displayShutdowns(shutdowns) {
+            const container = document.getElementById('shutdownsList');
+            const countBadge = document.getElementById('countBadge');
+
+            countBadge.textContent = shutdowns.length;
+            countBadge.className = shutdowns.length > 0 ? 'count-badge warning' : 'count-badge';
+
+            if (shutdowns.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p><strong>Brak planowanych wyłączeń</strong></p>
+                        <p>W najbliższym tygodniu nie ma planowanych wyłączeń prądu dla miejscowości Rozgarty.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Grupuj wyłączenia po datach
+            const groupedByDate = {};
+            shutdowns.forEach(shutdown => {
+                shutdown.hours.forEach(hour => {
+                    const fromDate = new Date(hour.fromDate);
+                    const toDate = new Date(hour.toDate);
+                    const dateKey = fromDate.toDateString();
+
+                    if (!groupedByDate[dateKey]) {
+                        groupedByDate[dateKey] = [];
+                    }
+
+                    groupedByDate[dateKey].push({
+                        fromDate,
+                        toDate,
+                        message: shutdown.message
+                    });
+                });
+            });
+
+            // Sortuj daty
+            const sortedDates = Object.keys(groupedByDate).sort((a, b) =>
+                new Date(a) - new Date(b)
+            );
+
+            let html = '';
+            sortedDates.forEach(dateKey => {
+                const items = groupedByDate[dateKey];
+                const date = new Date(dateKey);
+
+                items.forEach(item => {
+                    // Wyciągnij tylko informacje o Rozgartach z message
+                    const messageLines = item.message.split('\n');
+                    const rozgartyLines = messageLines.filter(line =>
+                        line.includes(LOCATION_FILTER)
+                    );
+
+                    html += `
+                        <div class="shutdown-item">
+                            <div class="shutdown-date">${formatDate(date)}</div>
+                            <div class="shutdown-time">
+                                ⏰ ${formatTime(item.fromDate)} – ${formatTime(item.toDate)}
+                            </div>
+                            <div class="shutdown-details">
+                                ${rozgartyLines.join('<br>') || item.message.substring(0, 200) + '...'}
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+
+            container.innerHTML = html;
+        }
+
+        function displayError(message) {
+            const container = document.getElementById('shutdownsList');
+            container.innerHTML = `
+                <div class="error-message">
+                    <strong>❌ Wystąpił błąd</strong><br>
+                    ${message}<br>
+                    <small>Spróbuj ponownie za chwilę.</small>
+                </div>
+            `;
+        }
+
+        function updateStatus(status, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            dot.className = 'status-dot';
+            if (status === 'checking') {
+                dot.classList.add('checking');
+            } else if (status === 'error') {
+                dot.classList.add('error');
+            }
+
+            statusText.textContent = text;
+        }
+
+        function updateLastCheck() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('pl-PL', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('lastCheck').textContent = `Ostatnie sprawdzenie: ${timeStr}`;
+        }
+
+        // Auto-sprawdzanie
+        function toggleAutoCheck() {
+            const btn = document.getElementById('autoCheckBtn');
+
+            if (autoCheckInterval) {
+                clearInterval(autoCheckInterval);
+                autoCheckInterval = null;
+                btn.textContent = '▶️ Włącz auto-sprawdzanie (co 6h)';
+                btn.className = 'btn-secondary';
+            } else {
+                autoCheckInterval = setInterval(checkShutdowns, CHECK_INTERVAL);
+                btn.textContent = '⏸️ Wyłącz auto-sprawdzanie';
+                btn.className = 'btn-primary';
+
+                // Pierwsze sprawdzenie od razu
+                checkShutdowns();
+            }
+        }
+
+        // Powiadomienia
+        async function requestNotifications() {
+            if (!('Notification' in window)) {
+                alert('Twoja przeglądarka nie obsługuje powiadomień.');
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                notificationPermission = permission;
+                updateNotificationStatus();
+
+                if (permission === 'granted') {
+                    new Notification('Monitor Wyłączeń Prądu', {
+                        body: 'Powiadomienia zostały włączone! Będziesz otrzymywać alerty o nowych wyłączeniach.',
+                        icon: '⚡'
+                    });
+                }
+            } catch (error) {
+                console.error('Błąd podczas włączania powiadomień:', error);
+            }
+        }
+
+        function updateNotificationStatus() {
+            const statusDiv = document.getElementById('notificationStatus');
+
+            if (notificationPermission === 'granted') {
+                statusDiv.className = 'notification-status enabled';
+                statusDiv.textContent = '✅ Powiadomienia są włączone';
+            } else if (notificationPermission === 'denied') {
+                statusDiv.className = 'notification-status denied';
+                statusDiv.textContent = '❌ Powiadomienia zostały zablokowane. Włącz je w ustawieniach przeglądarki.';
+            } else {
+                statusDiv.className = 'notification-status';
+                statusDiv.textContent = '⚠️ Powiadomienia nie są włączone. Kliknij przycisk powyżej.';
+            }
+        }
+
+        function sendNotification(shutdowns) {
+            if (notificationPermission !== 'granted' || shutdowns.length === 0) {
+                return;
+            }
+
+            const count = shutdowns.length;
+            const firstShutdown = shutdowns[0];
+            const firstDate = new Date(firstShutdown.startDate);
+
+            new Notification('⚡ Nowe wyłączenie prądu w Rozgartach!', {
+                body: `Znaleziono ${count} ${count === 1 ? 'wyłączenie' : 'wyłączenia'} w najbliższym tygodniu.\nPierwsze: ${formatDate(firstDate)}`,
+                icon: '⚡',
+                requireInteraction: true
+            });
+        }
+
+        // Funkcja do ręcznego sprawdzenia
+        function checkNow() {
+            checkShutdowns();
+        }
+
+        // Inicjalizacja
+        window.addEventListener('DOMContentLoaded', () => {
+            // Sprawdź status powiadomień
+            if ('Notification' in window) {
+                notificationPermission = Notification.permission;
+                updateNotificationStatus();
+            }
+
+            // Pierwsze sprawdzenie
+            checkShutdowns();
+        });
+    </script>
+</body>
+</html>
