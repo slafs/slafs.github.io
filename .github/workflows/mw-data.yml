@@ -6,9 +6,15 @@ on:
   schedule:
     - cron: "17 */3 * * *"
   workflow_dispatch:
+    inputs:
+      location:
+        description: "Miejscowość (tylko do testów; harmonogram zawsze używa Rozgart)"
+        required: false
+        default: Rozgarty
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: mw-data
@@ -19,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       API_URL: https://energa-operator.pl/__system/api/document/EXTERNAL_DOCUMENT-305647
-      LOCATION_FILTER: Rozgarty
+      LOCATION_FILTER: ${{ inputs.location || 'Rozgarty' }}
       OUT: projects/mw/data.json
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +42,7 @@ jobs:
           }' /tmp/energa.json > "$OUT"
 
       - name: Zapisz zmiany
+        id: commit
         run: |
           if git diff --quiet -- "$OUT" && git ls-files --error-unmatch "$OUT" >/dev/null 2>&1; then
             echo "Brak zmian."
@@ -44,5 +51,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git add "$OUT"
-          git commit -m "mw: aktualizacja danych o wyłączeniach"
+          git commit -m "mw: aktualizacja danych o wyłączeniach ($LOCATION_FILTER)"
           git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # Push wykonany tokenem GITHUB_TOKEN może nie uruchomić przebudowy Pages,
+      # a bez niej strona dalej serwowałaby stary data.json – zlecamy ją jawnie.
+      - name: Przebuduj GitHub Pages
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
