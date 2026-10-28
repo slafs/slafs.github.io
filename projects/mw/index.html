@@ -352,9 +352,9 @@
 
     <script>
         // Konfiguracja
-        const API_URL_DIRECT = 'https://energa-operator.pl/__system/api/document/EXTERNAL_DOCUMENT-305647/1763638013';
-        const CORS_PROXY = 'https://corsproxy.io/?';
-        const API_URL = CORS_PROXY + encodeURIComponent(API_URL_DIRECT);
+        // Dane z API Energi (już przefiltrowane dla Rozgart) aktualizuje co 3h
+        // workflow .github/workflows/mw-data.yml – API Energi nie obsługuje CORS.
+        const API_URL = 'data.json';
         const CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 godzin w milisekundach
         const LOCATION_FILTER = 'Rozgarty';
         const DAYS_AHEAD = 7;
@@ -393,13 +393,13 @@
             try {
                 updateStatus('checking', 'Sprawdzanie...');
 
-                const response = await fetch(API_URL);
+                const response = await fetch(API_URL, { cache: 'no-cache' });
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                const shutdowns = data.document?.payload?.shutdowns || [];
+                const shutdowns = data.shutdowns || [];
 
                 // Filtrowanie dla Rozgarty i najbliższego tygodnia
                 const now = new Date();

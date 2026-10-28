@@ -1,0 +1,48 @@
+# Pobiera wyłączenia prądu z API Energi i zapisuje te dla Rozgart do projects/mw/data.json.
+# API Energi nie wysyła nagłówków CORS, więc strona nie może pytać go bezpośrednio.
+name: Monitor Wyłączeń – dane
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mw-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      API_URL: https://energa-operator.pl/__system/api/document/EXTERNAL_DOCUMENT-305647
+      LOCATION_FILTER: Rozgarty
+      OUT: projects/mw/data.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pobierz i przefiltruj dane
+        run: |
+          curl -fsS --retry 3 --retry-delay 10 -m 60 "$API_URL" -o /tmp/energa.json
+          jq -S --arg loc "$LOCATION_FILTER" '{
+            shutdowns: [
+              .document.payload.shutdowns[]
+              | select(.message | contains($loc))
+              | {guid, startDate, endDate, hours, message}
+            ] | sort_by(.startDate, .guid)
+          }' /tmp/energa.json > "$OUT"
+
+      - name: Zapisz zmiany
+        run: |
+          if git diff --quiet -- "$OUT" && git ls-files --error-unmatch "$OUT" >/dev/null 2>&1; then
+            echo "Brak zmian."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          git commit -m "mw: aktualizacja danych o wyłączeniach"
+          git push
