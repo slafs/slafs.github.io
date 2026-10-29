@@ -319,7 +319,7 @@
 
             <div class="controls">
                 <button class="btn-primary" onclick="checkNow()">🔄 Sprawdź teraz</button>
-                <button class="btn-secondary" id="autoCheckBtn" onclick="toggleAutoCheck()">▶️ Włącz auto-sprawdzanie (co 6h)</button>
+                <button class="btn-secondary" id="autoCheckBtn" onclick="toggleAutoCheck()">▶️ Włącz auto-sprawdzanie (co 30 min)</button>
                 <button class="btn-success" onclick="requestNotifications()">🔔 Włącz powiadomienia</button>
             </div>
 
@@ -355,13 +355,49 @@
         // Dane z API Energi (już przefiltrowane dla Rozgart) aktualizuje co 3h
         // workflow .github/workflows/mw-data.yml – API Energi nie obsługuje CORS.
         const API_URL = 'data.json';
-        const CHECK_INTERVAL = 6 * 60 * 60 * 1000; // 6 godzin w milisekundach
+        const CHECK_INTERVAL = 30 * 60 * 1000; // 30 minut w milisekundach
         const LOCATION_FILTER = 'Rozgarty';
         const DAYS_AHEAD = 7;
 
+        // Pamięć między wizytami (localStorage). Może być niedostępna (tryb prywatny,
+        // zablokowane dane witryny) – wtedy strona działa tylko w obrębie jednej wizyty.
+        const STORAGE_AUTO_CHECK = 'mw.autoCheck';
+        const STORAGE_KNOWN_IDS = 'mw.knownShutdownIds';
+
+        function storageGet(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function storageSet(key, value) {
+            try {
+                if (value === null) {
+                    localStorage.removeItem(key);
+                } else {
+                    localStorage.setItem(key, value);
+                }
+            } catch (error) {
+                // brak localStorage – ignorujemy
+            }
+        }
+
+        function loadKnownShutdownIds() {
+            try {
+                const ids = JSON.parse(storageGet(STORAGE_KNOWN_IDS));
+                return Array.isArray(ids) ? new Set(ids) : null;
+            } catch (error) {
+                return null;
+            }
+        }
+
         // Stan aplikacji
         let autoCheckInterval = null;
-        let lastShutdownsCount = 0;
+        // guid-y wyłączeń z poprzedniego sprawdzenia (także z poprzedniej wizyty);
+        // null = jeszcze nigdy nie sprawdzano – pierwsze sprawdzenie tylko zapamiętuje stan
+        let knownShutdownIds = loadKnownShutdownIds();
         let notificationPermission = 'default';
 
         // Funkcje pomocnicze dla dat
@@ -426,11 +462,15 @@
                 updateLastCheck();
                 updateStatus('ready', 'Gotowy');
 
-                // Sprawdź czy są nowe wyłączenia i wyślij notyfikację
-                if (filteredShutdowns.length > lastShutdownsCount && lastShutdownsCount > 0) {
-                    sendNotification(filteredShutdowns);
+                // Sprawdź czy są nowe wyłączenia (po guid, nie po liczbie) i wyślij notyfikację
+                if (knownShutdownIds !== null) {
+                    const newShutdowns = filteredShutdowns.filter(s => !knownShutdownIds.has(s.guid));
+                    if (newShutdowns.length > 0) {
+                        sendNotification(newShutdowns);
+                    }
                 }
-                lastShutdownsCount = filteredShutdowns.length;
+                knownShutdownIds = new Set(filteredShutdowns.map(s => s.guid));
+                storageSet(STORAGE_KNOWN_IDS, JSON.stringify([...knownShutdownIds]));
 
                 return filteredShutdowns;
             } catch (error) {
@@ -557,12 +597,14 @@
             if (autoCheckInterval) {
                 clearInterval(autoCheckInterval);
                 autoCheckInterval = null;
-                btn.textContent = '▶️ Włącz auto-sprawdzanie (co 6h)';
+                btn.textContent = '▶️ Włącz auto-sprawdzanie (co 30 min)';
                 btn.className = 'btn-secondary';
+                storageSet(STORAGE_AUTO_CHECK, null);
             } else {
                 autoCheckInterval = setInterval(checkShutdowns, CHECK_INTERVAL);
                 btn.textContent = '⏸️ Wyłącz auto-sprawdzanie';
                 btn.className = 'btn-primary';
+                storageSet(STORAGE_AUTO_CHECK, '1');
 
                 // Pierwsze sprawdzenie od razu
                 checkShutdowns();
@@ -583,8 +625,7 @@
 
                 if (permission === 'granted') {
                     new Notification('Monitor Wyłączeń Prądu', {
-                        body: 'Powiadomienia zostały włączone! Będziesz otrzymywać alerty o nowych wyłączeniach.',
-                        icon: '⚡'
+                        body: 'Powiadomienia zostały włączone! Będziesz otrzymywać alerty o nowych wyłączeniach.'
                     });
                 }
             } catch (error) {
@@ -617,8 +658,7 @@
             const firstDate = new Date(firstShutdown.startDate);
 
             new Notification('⚡ Nowe wyłączenie prądu w Rozgartach!', {
-                body: `Znaleziono ${count} ${count === 1 ? 'wyłączenie' : 'wyłączenia'} w najbliższym tygodniu.\nPierwsze: ${formatDate(firstDate)}`,
-                icon: '⚡',
+                body: `Nowych wyłączeń w najbliższym tygodniu: ${count}\nPierwsze: ${formatDate(firstDate)}`,
                 requireInteraction: true
             });
         }
@@ -636,8 +676,12 @@
                 updateNotificationStatus();
             }
 
-            // Pierwsze sprawdzenie
-            checkShutdowns();
+            // Pierwsze sprawdzenie (przy zapamiętanym auto-sprawdzaniu robi je toggleAutoCheck)
+            if (storageGet(STORAGE_AUTO_CHECK) === '1') {
+                toggleAutoCheck();
+            } else {
+                checkShutdowns();
+            }
         });
     </script>
 </body>
