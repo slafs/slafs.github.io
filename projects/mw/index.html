@@ -320,7 +320,7 @@
             <div class="controls">
                 <button class="btn-primary" onclick="checkNow()">🔄 Sprawdź teraz</button>
                 <button class="btn-secondary" id="autoCheckBtn" onclick="toggleAutoCheck()">▶️ Włącz auto-sprawdzanie (co 30 min)</button>
-                <button class="btn-success" onclick="requestNotifications()">🔔 Włącz powiadomienia</button>
+                <button class="btn-success" id="notificationBtn" onclick="toggleNotifications()">🔔 Włącz powiadomienia</button>
             </div>
 
             <div class="notification-status" id="notificationStatus">
@@ -363,6 +363,7 @@
         // zablokowane dane witryny) – wtedy strona działa tylko w obrębie jednej wizyty.
         const STORAGE_AUTO_CHECK = 'mw.autoCheck';
         const STORAGE_KNOWN_IDS = 'mw.knownShutdownIds';
+        const STORAGE_NOTIFICATIONS_OFF = 'mw.notificationsOff';
 
         function storageGet(key) {
             try {
@@ -399,6 +400,9 @@
         // null = jeszcze nigdy nie sprawdzano – pierwsze sprawdzenie tylko zapamiętuje stan
         let knownShutdownIds = loadKnownShutdownIds();
         let notificationPermission = 'default';
+        // Strona nie może cofnąć zgody przeglądarki na powiadomienia, więc wyłączenie
+        // to własny przełącznik: zgoda zostaje, ale strona przestaje je wysyłać.
+        let notificationsOff = storageGet(STORAGE_NOTIFICATIONS_OFF) === '1';
 
         // Funkcje pomocnicze dla dat
         function parseDate(dateStr) {
@@ -612,6 +616,20 @@
         }
 
         // Powiadomienia
+        function notificationsActive() {
+            return notificationPermission === 'granted' && !notificationsOff;
+        }
+
+        function toggleNotifications() {
+            if (notificationsActive()) {
+                notificationsOff = true;
+                storageSet(STORAGE_NOTIFICATIONS_OFF, '1');
+                updateNotificationStatus();
+            } else {
+                requestNotifications();
+            }
+        }
+
         async function requestNotifications() {
             if (!('Notification' in window)) {
                 alert('Twoja przeglądarka nie obsługuje powiadomień.');
@@ -621,6 +639,10 @@
             try {
                 const permission = await Notification.requestPermission();
                 notificationPermission = permission;
+                if (permission === 'granted') {
+                    notificationsOff = false;
+                    storageSet(STORAGE_NOTIFICATIONS_OFF, null);
+                }
                 updateNotificationStatus();
 
                 if (permission === 'granted') {
@@ -635,10 +657,19 @@
 
         function updateNotificationStatus() {
             const statusDiv = document.getElementById('notificationStatus');
+            const btn = document.getElementById('notificationBtn');
 
-            if (notificationPermission === 'granted') {
+            btn.textContent = '🔔 Włącz powiadomienia';
+            btn.className = 'btn-success';
+
+            if (notificationsActive()) {
+                btn.textContent = '🔕 Wyłącz powiadomienia';
+                btn.className = 'btn-secondary';
                 statusDiv.className = 'notification-status enabled';
                 statusDiv.textContent = '✅ Powiadomienia są włączone';
+            } else if (notificationPermission === 'granted') {
+                statusDiv.className = 'notification-status';
+                statusDiv.textContent = '🔕 Powiadomienia są wyłączone. Kliknij przycisk powyżej, aby je włączyć.';
             } else if (notificationPermission === 'denied') {
                 statusDiv.className = 'notification-status denied';
                 statusDiv.textContent = '❌ Powiadomienia zostały zablokowane. Włącz je w ustawieniach przeglądarki.';
@@ -649,7 +680,7 @@
         }
 
         function sendNotification(shutdowns) {
-            if (notificationPermission !== 'granted' || shutdowns.length === 0) {
+            if (!notificationsActive() || shutdowns.length === 0) {
                 return;
             }
 
