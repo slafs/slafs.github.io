@@ -4,7 +4,7 @@ name: Monitor Wyłączeń – dane
 
 on:
   schedule:
-    - cron: "17 */3 * * *"
+    - cron: "7,37 * * * *"
   workflow_dispatch:
     inputs:
       location:
