@@ -40,7 +40,10 @@ jobs:
             ] | sort_by(.startDate, .guid)
           }' /tmp/energa.json > "$OUT"
 
-      - name: Zapisz zmiany
+      - name: Zapisz zmiany i powiadom
+        env:
+          MW_NTFY_TOPIC: ${{ secrets.MW_NTFY_TOPIC }}
+          TZ: Europe/Warsaw
         run: |
           if git diff --quiet -- "$OUT" && git ls-files --error-unmatch "$OUT" >/dev/null 2>&1; then
             echo "Brak zmian."
@@ -55,3 +58,16 @@ jobs:
           # push tokenem GITHUB_TOKEN przebudowę uruchamia. Jeśli kiedyś przestanie,
           # strona będzie po cichu pokazywać stare dane mimo zielonego workflow.
           git push
+
+          # Powiadomienie na telefon (aplikacja ntfy) przy każdej zmianie danych, z aktualną listą.
+          # Temat ntfy działa jak hasło, więc jest w sekrecie MW_NTFY_TOPIC; bez niego pomijamy.
+          if [ -n "$MW_NTFY_TOPIC" ]; then
+            body=$(jq -r '.shutdowns[].hours[]
+              | (.fromDate | fromdateiso8601 | strflocaltime("%d.%m %H:%M")) + "–"
+                + (.toDate | fromdateiso8601 | strflocaltime("%H:%M"))' "$OUT")
+            curl -fsS --retry 3 -m 30 -o /dev/null \
+              --url-query "title=Wyłączenia prądu – $LOCATION_FILTER" \
+              --url-query "tags=zap" \
+              --url-query "click=https://slafs.net/projects/mw/" \
+              -d "${body:-Brak planowanych wyłączeń}" "https://ntfy.sh/$MW_NTFY_TOPIC"
+          fi
