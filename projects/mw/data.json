@@ -1,12 +1,12 @@
 {
   "shutdowns": [
     {
-      "endDate": "2026-11-13T12:30:00Z",
+      "endDate": "2026-11-13T12:22:55.920Z",
       "guid": "c95a5c9e-8db9-4a60-b08a-224f8423e67b",
       "hours": [
         {
           "fromDate": "2026-11-13T09:49:23Z",
-          "toDate": "2026-11-13T12:30:00Z"
+          "toDate": "2026-11-13T12:22:55.920Z"
         }
       ],
       "message": "Rozgarty ulice Jagodowa, Jaśminowa, Kamykowa, Kwiatowa, Malinowa, Motylkowa, Piaskowa, Polanka, Porzeczkowa, Sarnia, Wesoła, Wróblowa, Zielona Polana, Żytnia.",
